@@ -37,22 +37,46 @@ func (pr *PolynomialRegression) buildDesignMatrix(xTrain []float64) [][]float64 
 
 // fit ajusta el modelo de regresión polinomial
 func (pr *PolynomialRegression) Fit(xTrain, yTrain []float64) error {
-	if err := pr.checkDataLength(xTrain, yTrain); err != nil {
-		return err
+	if len(xTrain) != len(yTrain) {
+		return errors.New("longitudes de xTrain e yTrain no coinciden")
 	}
 
-	X := pr.buildDesignMatrix(xTrain)
-	Y := yTrain
+	n := len(xTrain)
 
-	// Resolución de coeficientes utilizando el método de mínimos cuadrados
-	// A continuación necesitarás utilizar alguna librería de álgebra lineal como `gonum` para resolver X^T * X
-	// Por simplicidad, este ejemplo no implementa la solución de matrices.
+	// Construir la matriz de diseño X
+	X := mat.NewDense(n, pr.Degree+1, nil)
+	for i := 0; i < n; i++ {
+		for j := 0; j <= pr.Degree; j++ {
+			X.Set(i, j, pow(xTrain[i], j))
+		}
+	}
 
-	// Este es un ejemplo de cómo podrías definir la estructura, ahora es necesario implementarlo correctamente
-	// para la solución de la matriz.
+	// Vector de salida Y
+	Y := mat.NewVecDense(n, yTrain)
 
-	// pr.coefficients = ... (resolver el sistema de ecuaciones)
-	pr.isFit = true
+	// Cálculo de los coeficientes: (X^T * X)^(-1) * X^T * Y
+	var XT mat.Dense
+	XT.CloneFrom(X.T())
+
+	var XTX mat.Dense
+	XTX.Mul(&XT, X)
+
+	var XTXInv mat.Dense
+	err := XTXInv.Inverse(&XTX)
+	if err != nil {
+		return errors.New("no se pudo invertir la matriz X^T * X: " + err.Error())
+	}
+
+	var XTY mat.VecDense
+	XTY.MulVec(&XT, Y)
+
+	var coeffs mat.VecDense
+	coeffs.MulVec(&XTXInv, &XTY)
+
+	// Guardar coeficientes y marcar modelo como entrenado
+	pr.Coefficients = &coeffs
+	pr.IsFit = true
+
 	return nil
 }
 
@@ -96,4 +120,12 @@ func (pr *PolynomialRegression) R2(yTrain, yPredict []float64) float64 {
 	}
 
 	return numerator / denominator
+}
+
+func pow(base float64, exp int) float64 {
+	result := 1.0
+	for i := 0; i < exp; i++ {
+		result *= base
+	}
+	return result
 }
