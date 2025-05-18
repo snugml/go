@@ -26,7 +26,7 @@ func main() {
 	// Imprimir los resultados
 	fmt.Println("X:", X)
 	fmt.Println("y:", y)
-	fmt.Println("yPredict:", yPredRounded)
+	fmt.Println("yPredict:", yPredict)
 	fmt.Printf("MSE: %.4f\n", mse)
 	fmt.Printf("R2: %.4f\n", r2)
 }
