@@ -1,4 +1,4 @@
-package models
+package utils
 
 // AccuracyScore calcula la precisión comparando etiquetas reales y predichas.
 // Ambas slices deben tener la misma longitud.
