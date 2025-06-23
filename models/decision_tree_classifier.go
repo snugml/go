@@ -9,8 +9,8 @@ import (
 
 // Nodo del árbol
 type Node struct {
-	Label         int        // Nodo hoja: etiqueta codificada como int
-	FeatureIndex  int        // Índice del atributo para dividir
+	Label         int        // Nodo hoja: etiqueta codificada como int; -1 si no hoja
+	FeatureIndex  int        // Índice del atributo para dividir; -1 si hoja
 	FeatureValues []int      // Valores únicos del atributo para ramificar
 	Children      []ChildNode
 }
@@ -23,18 +23,7 @@ type ChildNode struct {
 type DecisionTreeClassifier struct {
 	Tree     *Node
 	MaxDepth int
-	Gain     string // string para almacenar texto con info (similar al JS)
-}
-
-// Nuevo clasificador con profundidad máxima (por defecto 5)
-func NewDecisionTreeClassifier(maxDepth int) *DecisionTreeClassifier {
-	if maxDepth <= 0 {
-		maxDepth = 5
-	}
-	return &DecisionTreeClassifier{
-		MaxDepth: maxDepth,
-		Gain:     "",
-	}
+	Gain     string // string para almacenar texto con info
 }
 
 // Fit entrena el árbol con datos X (atributos) e y (etiquetas)
@@ -45,6 +34,7 @@ func (dt *DecisionTreeClassifier) Fit(X [][]int, y []int) error {
 	if len(X) != len(y) {
 		return errors.New("X and y have different lengths")
 	}
+	// Inicializar Label y FeatureIndex en nodos hoja con -1
 	dt.Tree = dt.buildTree(X, y, 0)
 	return nil
 }
@@ -55,19 +45,19 @@ func (dt *DecisionTreeClassifier) buildTree(X [][]int, y []int, depth int) *Node
 
 	// Caso base 1: Todas las etiquetas iguales
 	if len(uniqueLabels) == 1 {
-		return &Node{Label: uniqueLabels[0]}
+		return &Node{Label: uniqueLabels[0], FeatureIndex: -1}
 	}
 
 	// Caso base 2: Profundidad máxima o no hay atributos
 	if depth >= dt.MaxDepth || (len(X) > 0 && len(X[0]) == 0) {
 		majority := majorityLabel(y)
-		return &Node{Label: majority}
+		return &Node{Label: majority, FeatureIndex: -1}
 	}
 
 	bestFeature := dt.bestSplit(X, y)
 	if bestFeature == -1 {
 		majority := majorityLabel(y)
-		return &Node{Label: majority}
+		return &Node{Label: majority, FeatureIndex: -1}
 	}
 
 	bestFeatureValues := uniqueInts(getColumn(X, bestFeature))
@@ -75,6 +65,7 @@ func (dt *DecisionTreeClassifier) buildTree(X [][]int, y []int, depth int) *Node
 	node := &Node{
 		FeatureIndex:  bestFeature,
 		FeatureValues: bestFeatureValues,
+		Label:         -1,
 		Children:      []ChildNode{},
 	}
 
