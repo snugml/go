@@ -1,21 +1,22 @@
 package models
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"math"
+	"strings"
 )
 
 // Nodo del árbol
 type Node struct {
-	Label         string  // Nodo hoja
-	FeatureIndex  int     // Índice del atributo para dividir
-	FeatureValues []string
+	Label         int        // Nodo hoja: etiqueta codificada como int
+	FeatureIndex  int        // Índice del atributo para dividir
+	FeatureValues []int      // Valores únicos del atributo para ramificar
 	Children      []ChildNode
 }
 
 type ChildNode struct {
-	Value     string
+	Value     int
 	ChildNode *Node
 }
 
@@ -37,7 +38,7 @@ func NewDecisionTreeClassifier(maxDepth int) *DecisionTreeClassifier {
 }
 
 // Fit entrena el árbol con datos X (atributos) e y (etiquetas)
-func (dt *DecisionTreeClassifier) Fit(X [][]string, y []string) error {
+func (dt *DecisionTreeClassifier) Fit(X [][]int, y []int) error {
 	if len(X) == 0 || len(y) == 0 {
 		return errors.New("X or y are empty")
 	}
@@ -49,8 +50,8 @@ func (dt *DecisionTreeClassifier) Fit(X [][]string, y []string) error {
 }
 
 // Función recursiva para construir el árbol
-func (dt *DecisionTreeClassifier) buildTree(X [][]string, y []string, depth int) *Node {
-	uniqueLabels := uniqueStrings(y)
+func (dt *DecisionTreeClassifier) buildTree(X [][]int, y []int, depth int) *Node {
+	uniqueLabels := uniqueInts(y)
 
 	// Caso base 1: Todas las etiquetas iguales
 	if len(uniqueLabels) == 1 {
@@ -69,7 +70,7 @@ func (dt *DecisionTreeClassifier) buildTree(X [][]string, y []string, depth int)
 		return &Node{Label: majority}
 	}
 
-	bestFeatureValues := uniqueStrings(getColumn(X, bestFeature))
+	bestFeatureValues := uniqueInts(getColumn(X, bestFeature))
 
 	node := &Node{
 		FeatureIndex:  bestFeature,
@@ -86,7 +87,7 @@ func (dt *DecisionTreeClassifier) buildTree(X [][]string, y []string, depth int)
 		}
 
 		XSubset := subsetRemoveColumn(X, indices, bestFeature)
-		ySubset := subsetStrings(y, indices)
+		ySubset := subsetInts(y, indices)
 
 		child := dt.buildTree(XSubset, ySubset, depth+1)
 		node.Children = append(node.Children, ChildNode{Value: val, ChildNode: child})
@@ -96,8 +97,8 @@ func (dt *DecisionTreeClassifier) buildTree(X [][]string, y []string, depth int)
 }
 
 // Calcula la entropía
-func entropy(y []string) float64 {
-	counts := map[string]int{}
+func entropy(y []int) float64 {
+	counts := map[int]int{}
 	for _, label := range y {
 		counts[label]++
 	}
@@ -111,8 +112,8 @@ func entropy(y []string) float64 {
 }
 
 // Calcula ganancia de información para una característica
-func (dt *DecisionTreeClassifier) informationGain(X [][]string, y []string, featureIndex int) float64 {
-	featureValues := uniqueStrings(getColumn(X, featureIndex))
+func (dt *DecisionTreeClassifier) informationGain(X [][]int, y []int, featureIndex int) float64 {
+	featureValues := uniqueInts(getColumn(X, featureIndex))
 	totalEntropy := entropy(y)
 	weightedEntropy := 0.0
 
@@ -123,15 +124,15 @@ func (dt *DecisionTreeClassifier) informationGain(X [][]string, y []string, feat
 				indices = append(indices, i)
 			}
 		}
-		ySubset := subsetStrings(y, indices)
-		weightedEntropy += float64(len(ySubset))/float64(len(y)) * entropy(ySubset)
+		ySubset := subsetInts(y, indices)
+		weightedEntropy += float64(len(ySubset)) / float64(len(y)) * entropy(ySubset)
 	}
 
 	return totalEntropy - weightedEntropy
 }
 
 // Busca el mejor atributo para dividir
-func (dt *DecisionTreeClassifier) bestSplit(X [][]string, y []string) int {
+func (dt *DecisionTreeClassifier) bestSplit(X [][]int, y []int) int {
 	bestGain := math.Inf(-1)
 	bestFeature := -1
 
@@ -157,12 +158,12 @@ func (dt *DecisionTreeClassifier) bestSplit(X [][]string, y []string) int {
 }
 
 // Predice etiquetas para X
-func (dt *DecisionTreeClassifier) Predict(X [][]string) ([]string, error) {
+func (dt *DecisionTreeClassifier) Predict(X [][]int) ([]int, error) {
 	if dt.Tree == nil {
 		return nil, errors.New("Model not trained")
 	}
 
-	preds := make([]string, len(X))
+	preds := make([]int, len(X))
 	for i, row := range X {
 		preds[i] = dt.predictRow(row, dt.Tree)
 	}
@@ -170,8 +171,8 @@ func (dt *DecisionTreeClassifier) Predict(X [][]string) ([]string, error) {
 }
 
 // Predicción recursiva para una fila
-func (dt *DecisionTreeClassifier) predictRow(row []string, node *Node) string {
-	if node.Label != "" {
+func (dt *DecisionTreeClassifier) predictRow(row []int, node *Node) int {
+	if node.Label != -1 {
 		return node.Label
 	}
 	val := row[node.FeatureIndex]
@@ -189,43 +190,66 @@ func (dt *DecisionTreeClassifier) predictRow(row []string, node *Node) string {
 		return majorityLabel(dt.getAllLabels(node))
 	}
 
-	filteredRow := removeIndex(row, node.FeatureIndex)
+	filteredRow := removeIndexInt(row, node.FeatureIndex)
 	return dt.predictRow(filteredRow, child)
 }
 
 // Extrae todas las etiquetas de un sub-árbol
-func (dt *DecisionTreeClassifier) getAllLabels(node *Node) []string {
-	if node.Label != "" {
-		return []string{node.Label}
+func (dt *DecisionTreeClassifier) getAllLabels(node *Node) []int {
+	if node.Label != -1 {
+		return []int{node.Label}
 	}
-	labels := []string{}
+	labels := []int{}
 	for _, c := range node.Children {
 		labels = append(labels, dt.getAllLabels(c.ChildNode)...)
 	}
 	return labels
 }
 
+// Imprime el árbol en texto legible
+func (dt *DecisionTreeClassifier) PrintTree() string {
+	if dt.Tree == nil {
+		return "No tree trained yet"
+	}
+	return dt.printTree(dt.Tree, 0)
+}
+
+func (dt *DecisionTreeClassifier) printTree(node *Node, depth int) string {
+	if node == nil {
+		return ""
+	}
+	indent := strings.Repeat("  ", depth)
+	if node.Label != -1 {
+		return fmt.Sprintf("%sLeaf: %d\n", indent, node.Label)
+	}
+	res := fmt.Sprintf("%sFeature %d:\n", indent, node.FeatureIndex)
+	for _, child := range node.Children {
+		res += fmt.Sprintf("%s- Value %d:\n%s", indent+"  ", child.Value, dt.printTree(child.ChildNode, depth+2))
+	}
+	return res
+}
+
 // Funciones auxiliares
 
-func uniqueStrings(arr []string) []string {
-	m := map[string]struct{}{}
+func uniqueInts(arr []int) []int {
+	m := map[int]struct{}{}
 	for _, v := range arr {
 		m[v] = struct{}{}
 	}
-	res := []string{}
+	res := []int{}
 	for k := range m {
 		res = append(res, k)
 	}
 	return res
 }
 
-func majorityLabel(y []string) string {
-	counts := map[string]int{}
+func majorityLabel(y []int) int {
+	counts := map[int]int{}
 	for _, label := range y {
 		counts[label]++
 	}
 	var maxCount int
-	var majority string
+	var majority int = -1
 	for label, count := range counts {
 		if count > maxCount {
 			maxCount = count
@@ -235,18 +259,18 @@ func majorityLabel(y []string) string {
 	return majority
 }
 
-func getColumn(X [][]string, col int) []string {
-	res := make([]string, len(X))
+func getColumn(X [][]int, col int) []int {
+	res := make([]int, len(X))
 	for i := range X {
 		res[i] = X[i][col]
 	}
 	return res
 }
 
-func subsetRemoveColumn(X [][]string, indices []int, col int) [][]string {
-	res := make([][]string, len(indices))
+func subsetRemoveColumn(X [][]int, indices []int, col int) [][]int {
+	res := make([][]int, len(indices))
 	for i, idx := range indices {
-		row := []string{}
+		row := []int{}
 		for j := 0; j < len(X[idx]); j++ {
 			if j != col {
 				row = append(row, X[idx][j])
@@ -257,16 +281,16 @@ func subsetRemoveColumn(X [][]string, indices []int, col int) [][]string {
 	return res
 }
 
-func subsetStrings(arr []string, indices []int) []string {
-	res := make([]string, len(indices))
+func subsetInts(arr []int, indices []int) []int {
+	res := make([]int, len(indices))
 	for i, idx := range indices {
 		res[i] = arr[idx]
 	}
 	return res
 }
 
-func removeIndex(arr []string, idx int) []string {
-	res := append([]string{}, arr[:idx]...)
+func removeIndexInt(arr []int, idx int) []int {
+	res := append([]int{}, arr[:idx]...)
 	return append(res, arr[idx+1:]...)
 }
 
