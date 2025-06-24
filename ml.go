@@ -9,6 +9,8 @@ import (
 type LinearRegression = models.LinearRegression
 type PolynomialRegression = models.PolynomialRegression
 type DecisionTreeClassifier = models.DecisionTreeClassifier
+type MLPClassifier = models.MLPClassifier
+var NewMLPClassifier = models.NewMLPClassifier
 
 // utils
 type LabelEncoder = utils.LabelEncoder
