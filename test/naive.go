@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"github.com/snugml/go"
 )
 
@@ -17,21 +18,15 @@ func main() {
 	y := []interface{}{0, 0, 1, 1, 0}
 
 	// Crear el modelo
-	model := models.GaussianNB{}
+	model := ml.GaussianNB{}
 
 	// Ajustar modelo a los datos
 	if err := model.Fit(X, y); err != nil {
 		log.Fatal(err)
 	}
 
-	// Datos para predicción
-	XTest := [][]float64{
-		{2, 3},
-		{3, 4},
-	}
-
 	// Realizar predicciones
-	predictions := model.Predict(XTest)
+	predictions := model.Predict(X)
 
 	// Mostrar resultados
 	fmt.Println("Predicciones:", predictions)
