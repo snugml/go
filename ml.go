@@ -11,6 +11,7 @@ type PolynomialRegression = models.PolynomialRegression
 type DecisionTreeClassifier = models.DecisionTreeClassifier
 type MLPClassifier = models.MLPClassifier
 var NewMLPClassifier = models.NewMLPClassifier
+type GaussianNB = models.GaussianNB
 
 // utils
 type LabelEncoder = utils.LabelEncoder
